@@ -30,10 +30,10 @@
         )
     ";
 
-    // Ejecución en la base de datos local
+    // Ejecución en bd local
     $local_res = pg_query($local_conn, $sql);
     
-    // Ejecución en la base de datos de Supabase
+    // Ejecución en bd de Supabase
     $supa_res = pg_query($supa_conn, $sql);
 
     $msg = "";
