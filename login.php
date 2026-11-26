@@ -24,7 +24,7 @@ if (!isset($supa_conn) || !$supa_conn) {
     exit;
 }
 
-$sql = 'SELECT id, firstname, lastname, email, password
+$sql = 'SELECT id, firstname, lastname, email, password, photo_url
         FROM public.users WHERE email = $1 LIMIT 1';
 
 $result = pg_query_params($supa_conn, $sql, [$email]);
@@ -42,11 +42,15 @@ if (!$user || !hash_equals(strtolower($user['password']), md5($password))) {
     header('Location: login.html?error=credenciales');
     exit;
 }
+
 session_regenerate_id(true);
 $_SESSION['user_id'] = $user['id'];
 $_SESSION['user_email'] = $user['email'];
 $_SESSION['user_name'] = $user['firstname'];
+$_SESSION['user_lastname'] = $user['lastname'];
+$_SESSION['user_photo'] = $user['photo_url'] ?? '';
+
 pg_close($supa_conn);
-header('Location: index.html');
+header('Location: index.php');
 exit;
 ?>
