@@ -1,7 +1,6 @@
 <?php
 require("./config/database.php");
 
-// Detectar la variable de conexión activa (priorizando Supabase si existe, o local)
 $conexion = isset($supa_conn) ? $supa_conn : $local_conn;
 
 $id = $_GET['id'] ?? '';
@@ -19,11 +18,37 @@ if (!$result || pg_num_rows($result) == 0) {
 
 $user = pg_fetch_assoc($result);
 
-// Manejar foto por defecto
-$foto_actual = !empty($user['photo_url']) ? $user['photo_url'] : 'photos/usuario.png';
-if (strpos($foto_actual, 'photo/') === 0) {
-    $foto_actual = 'photos/' . basename($foto_actual);
+function resolverFotoCombox2($rutaBD) {
+    $default = 'photos/usuario.png';
+    $ruta = trim((string)$rutaBD);
+
+    if ($ruta === '') {
+        return $default;
+    }
+
+    if (preg_match('#^https?://#i', $ruta)) {
+        return $ruta;
+    }
+
+    $archivo = basename($ruta);
+    if ($archivo === '') {
+        return $default;
+    }
+
+    // 1. Buscar en combox2/photos/
+    if (file_exists(__DIR__ . '/photos/' . $archivo)) {
+        return 'photos/' . $archivo;
+    }
+
+    // 2. Buscar en combox/src/photos/
+    if (file_exists(__DIR__ . '/../combox/src/photos/' . $archivo)) {
+        return '../combox/src/photos/' . $archivo;
+    }
+
+    return $default;
 }
+
+$foto_actual = resolverFotoCombox2($user['photo_url'] ?? '');
 ?>
 
 <!DOCTYPE html>
@@ -32,14 +57,11 @@ if (strpos($foto_actual, 'photo/') === 0) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editar Usuario - Combox</title>
-    <!-- Bootstrap 5 CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
 
-    <!-- Barra de navegación superior -->
     <nav class="navbar navbar-dark bg-primary shadow-sm mb-4">
         <div class="container">
             <span class="navbar-brand mb-0 h1"><i class="bi bi-person-gear me-2"></i> Gestión de Usuarios - Combox</span>
@@ -86,9 +108,16 @@ if (strpos($foto_actual, 'photo/') === 0) {
                         <div class="mb-4 text-center">
                             <label class="form-label fw-semibold d-block text-start mb-2">Fotografía de perfil</label>
                             <div class="mb-3">
-                                <img src="<?php echo htmlspecialchars($foto_actual); ?>" width="90" height="90" class="rounded-circle shadow-sm border" style="object-fit:cover;" alt="Foto actual">
+                                <img id="previewFoto"
+                                     src="<?php echo htmlspecialchars($foto_actual, ENT_QUOTES, 'UTF-8'); ?>"
+                                     width="90"
+                                     height="90"
+                                     class="rounded-circle shadow-sm border"
+                                     style="object-fit:cover;"
+                                     alt="Foto actual"
+                                     onerror="this.onerror=null;this.src='photos/usuario.png';">
                             </div>
-                            <input type="file" class="form-control" name="photo" accept=".jpg,.jpeg,.png">
+                            <input type="file" id="inputFoto" class="form-control" name="photo" accept=".jpg,.jpeg,.png">
                             <div class="form-text text-start">Formatos permitidos: JPG o PNG.</div>
                         </div>
 
@@ -104,7 +133,14 @@ if (strpos($foto_actual, 'photo/') === 0) {
         </div>
     </div>
 
-    <!-- Bootstrap 5 JS Bundle CDN -->
+    <script>
+        document.getElementById('inputFoto').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('previewFoto').src = URL.createObjectURL(file);
+            }
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

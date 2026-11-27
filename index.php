@@ -3,18 +3,77 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once("./config/database.php");
+
+$conexion = isset($supa_conn) ? $supa_conn : ($local_conn ?? null);
+
+function resolverFotoIndexCombox2($rutaBD) {
+    $default = 'photos/usuario.png';
+    $ruta = trim((string)$rutaBD);
+
+    if ($ruta === '') {
+        return $default;
+    }
+
+    if (preg_match('#^https?://#i', $ruta)) {
+        return $ruta;
+    }
+
+    $ruta = preg_replace('#^(\.\./)+#', '', $ruta);
+    if (strpos($ruta, 'combox2/') === 0) {
+        $ruta = substr($ruta, strlen('combox2/'));
+    }
+    if (strpos($ruta, 'src/') === 0) {
+        $ruta = substr($ruta, strlen('src/'));
+    }
+
+    $archivo = basename($ruta);
+    if ($archivo === '') {
+        return $default;
+    }
+
+    // 1. Buscar primero en combox2/photos/
+    if (file_exists(__DIR__ . '/photos/' . $archivo)) {
+        return 'photos/' . $archivo;
+    }
+
+    // 2. Si no existe ahí, buscar en combox/src/photos/
+    if (file_exists(__DIR__ . '/../combox/src/photos/' . $archivo)) {
+        return '../combox/src/photos/' . $archivo;
+    }
+
+    return $default;
+}
+
+// Refrescar datos del usuario desde la BD si hay sesión iniciada
+$idSesion = $_SESSION['userid'] ?? $_SESSION['user_id'] ?? null;
+if ($conexion && !empty($idSesion) && is_numeric($idSesion)) {
+    $resMe = pg_query_params(
+        $conexion,
+        'SELECT firstname, lastname, photo_url FROM public.users WHERE id = $1 LIMIT 1',
+        [(int)$idSesion]
+    );
+    if ($resMe && pg_num_rows($resMe) > 0) {
+        $me = pg_fetch_assoc($resMe);
+        $_SESSION['user_name']     = $me['firstname'] ?? ($_SESSION['user_name'] ?? $_SESSION['fname'] ?? '');
+        $_SESSION['user_lastname'] = $me['lastname'] ?? ($_SESSION['user_lastname'] ?? $_SESSION['lname'] ?? '');
+        $_SESSION['photo_url']     = !empty($me['photo_url']) ? $me['photo_url'] : 'photos/usuario.png';
+    }
+}
+
 $nombreUsuario = htmlspecialchars(
-    trim(($_SESSION['user_name'] ?? '') . ' ' . ($_SESSION['user_lastname'] ?? '')),
+    trim(
+        ($_SESSION['user_name'] ?? $_SESSION['fname'] ?? '') . ' ' .
+        ($_SESSION['user_lastname'] ?? $_SESSION['lname'] ?? '')
+    ),
     ENT_QUOTES,
     'UTF-8'
 );
 
-$fotoUsuario = trim($_SESSION['user_photo'] ?? '');
-if ($fotoUsuario === '') {
-    $fotoUsuario = 'photos/usuario.png';
-}
+$fotoUsuario = resolverFotoIndexCombox2($_SESSION['photo_url'] ?? $_SESSION['user_photo'] ?? '');
 $fotoUsuarioAttr = htmlspecialchars($fotoUsuario, ENT_QUOTES, 'UTF-8');
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -59,11 +118,21 @@ $fotoUsuarioAttr = htmlspecialchars($fotoUsuario, ENT_QUOTES, 'UTF-8');
             <hr class="sidebar-divider my-0">
 
             <!-- Nav Item - Dashboard -->
-            <li class="nav-item active">
-                <a class="nav-link" href="index.html">
-                    <i class="fas fa-fw fa-tachometer-alt"></i>
-                    <span>Dashboard</span></a>
-            </li>
+           <!-- Nav Item - Dashboard -->
+                <li class="nav-item active">
+                    <a class="nav-link" href="index.php">
+                        <i class="fas fa-fw fa-tachometer-alt"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+
+                <!-- Nav Item - Listar usuarios -->
+                <li class="nav-item">
+                    <a class="nav-link" href="list_users.php">
+                        <i class="fas fa-fw fa-users"></i>
+                        <span>Listar usuarios</span>
+                    </a>
+                </li>
 
             <!-- Divider -->
             <hr class="sidebar-divider">

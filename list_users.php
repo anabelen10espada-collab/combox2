@@ -3,6 +3,36 @@ ob_start();
 require("./config/database.php");
 ob_end_clean();
 
+function resolverFotoLista($rutaBD) {
+    $default = 'photos/usuario.png';
+    $ruta = trim((string)$rutaBD);
+
+    if ($ruta === '') {
+        return $default;
+    }
+
+    if (preg_match('#^https?://#i', $ruta)) {
+        return $ruta;
+    }
+
+    $archivo = basename($ruta);
+    if ($archivo === '') {
+        return $default;
+    }
+
+    // 1. Buscar en combox2/photos/
+    if (file_exists(__DIR__ . '/photos/' . $archivo)) {
+        return 'photos/' . $archivo;
+    }
+
+    // 2. Buscar en combox/src/photos/
+    if (file_exists(__DIR__ . '/../combox/src/photos/' . $archivo)) {
+        return '../combox/src/photos/' . $archivo;
+    }
+
+    return $default;
+}
+
 $sql = "
     SELECT
         id,
@@ -21,7 +51,7 @@ $sql = "
         lastname ASC
 ";
 
-$res = pg_query($supa_conn,$sql);
+$res = pg_query($supa_conn, $sql);
 
 if (!$res) {
     die("Error en la consulta: " . pg_last_error($supa_conn));
@@ -173,7 +203,9 @@ if (!$res) {
         </tr>
 
         <?php
-        while ($row = pg_fetch_assoc($res)) {$idUsuario = (int)$row['id'];$nombreRaw = $row['firstname'] . ' ' .$row['lastname'];
+        while ($row = pg_fetch_assoc($res)) {
+            $idUsuario = (int)$row['id'];
+            $nombreRaw = $row['firstname'] . ' ' . $row['lastname'];
             $nombreAttr = htmlspecialchars($nombreRaw, ENT_QUOTES, 'UTF-8');
 
             echo "<tr>";
@@ -184,9 +216,7 @@ if (!$res) {
             echo "<td>" . htmlspecialchars($row['user_status']) . "</td>";
 
             // PHOTO
-            $foto = trim($row['photo_url'] ?? '');
-            if (empty($foto)) {$foto = 'photos/usuario.png';
-            }
+            $foto = resolverFotoLista($row['photo_url'] ?? '');
 
             echo "<td>";
             echo "<img src='" . htmlspecialchars($foto, ENT_QUOTES, 'UTF-8') . "'
@@ -194,7 +224,7 @@ if (!$res) {
                   height='60'
                   style='border-radius:50%; object-fit:cover;'
                   alt='Foto de perfil'
-                  onerror=\"this.onerror=null;this.src='photos/user_default.png';\">";
+                  onerror=\"this.onerror=null;this.src='photos/usuario.png';\">";
             echo "</td>";
 
             // ACTIONS
@@ -265,3 +295,5 @@ if (!$res) {
             document.getElementById("modalAccion").style.display = "none";
         }
     </script>
+</body>
+</html>
